@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente Virtual de Reparo de Placas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .result {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Assistente Virtual de Reparo de Placas</h1>
+    <p id="greeting"></p>
+    <input type="text" id="search" placeholder="Digite sua pergunta...">
+    <button onclick="buscar()">Buscar</button>
+    <div id="resultados"></div>
+
+    <script>
+        const CLIENT_ID = 'SEU_CLIENT_ID';  // Substitua pelo seu CLIENT_ID
+        const API_KEY = 'SUA_API_KEY';  // Substitua pela sua API_KEY
+        const SHEET_ID = '19378bEpPrFa5sBLG2pfd-FsDerWUZtik8B6nRBvXDdQ';  // Substitua pelo ID da sua planilha
+        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        document.getElementById('loginButton').addEventListener('click', () => {
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${SCOPES}`;
+            window.location.href = authUrl;
+        });
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+            });
+            gapiInited = true;
+            maybeEnableButtons();
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // defined later
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                document.getElementById('loginButton').style.display = 'none';
+                document.getElementById('mainContainer').style.display = 'block';
+                loadItems();
+            }
+        }
+
+        async function loadItems() {
+            try {
+                const response = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: SHEET_ID,
+                    range: 'Lista!A2:C',
+                });
+                const range = response.result;
+                if (!range || !range.values || range.values.length == 0) {
+                    console.log('No values found.');
+                    return;
+                }
+                fullItemList = range.values;
+                displayItems(fullItemList);
+            } catch (err) {
+                console.error('Error fetching data', err);
+            }
+        }
+
+        function displayItems(items) {
+            const itemList = document.getElementById('itemList');
+            itemList.innerHTML = '';
+            items.forEach((item, index) => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `
+                    <input type="checkbox" onchange="toggleHighlight(this, ${index})">
+                    <div class="bold-item">
+                        <span>${item[0]}</span> - <span>${item[1]}</span> - <span>${item[2]}</span>
+                    </div>
+                    <button onclick="editItem(${index})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                `;
+                itemList.appendChild(listItem);
+            });
+        }
+
+        function toggleHighlight(checkbox, index) {
+            const listItem = checkbox.parentElement;
+            if (checkbox.checked) {
+                listItem.classList.add('highlight');
+                listItem.querySelector('div').classList.add('checked-item');
+            } else {
+                listItem.classList.remove('highlight');
+                listItem.querySelector('div').classList.remove('checked-item');
+            }
+        }
+
+        function openAddContainer() {
+            document.getElementById('addContainer').classList.add('active');
+        }
+
+        function closeAddContainer() {
+            document.getElementById('addContainer').classList.remove('active');
+        }
+
+        function showAllItems() {
+            showAll = true;
+            loadItems();
+        }
+
+        function editItem(index) {
+            const realIndex = getRealIndex(index); // Obter o índice real do item
+            if (realIndex !== -1) {
+                const item = fullItemList[realIndex];
+                selectedItem = realIndex;
+                document.getElementById('editItemInput').value = item[0];
+                document.getElementById('editQuantityInput').value = item[1];
+                document.getElementById('editLocationInput').value = item[2];
+                document.getElementById('editContainer').classList.add('active');
+            }
+        }
+
+        function getRealIndex(filteredIndex) {
+            // Mapear o índice filtrado para o índice real
+            if (showAll) {
+                return filteredIndex;
+            } else {
+                let count = 0;
+                for (let i = 0; i < fullItemList.length; i++) {
+                    if (parseInt(fullItemList[i][1], 10) > 0) {
+                        if (count === filteredIndex) {
+                            return i;
+                        }
+                        count++;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        async function updateItem() {
+            const item = document.getElementById('editItemInput').value;
+            const quantity = document.getElementById('editQuantityInput').value;
+            const location = document.getElementById('editLocationInput').value;
+
+            if (item && quantity && location && selectedItem !== null) {
+                const rowIndex = selectedItem + 2; // Linha na planilha (começa em 2 porque os dados começam na linha 2)
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A${rowIndex}:C${rowIndex}?valueInputOption=USER_ENTERED`;
+                const body = JSON.stringify({
+                    values: [[item, quantity, location]]
+                });
+
+                const response = await fetchWithTokenRefresh(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body
+                });
+
+                if (response && response.ok) {
+                    loadItems();
+                    closeEditContainer();
+                } else {
+                    console.error('Erro ao atualizar item');
+                }
+            } else {
+                alert('Preencha todos os campos');
+            }
+        }
+
+        function closeEditContainer() {
+            document.getElementById('editContainer').classList.remove('active');
+            loadItems(); // Mostrar todos os itens após fechar o contêiner de edição
+        }
+
+         async function addItem() {
+            const item = document.getElementById('addItemInput').value;
+            const quantity = document.getElementById('addQuantityInput').value;
+            const location = document.getElementById('addLocationInput').value;
+
+            if (item && quantity && location) {
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A1:C1:append?valueInputOption=USER_ENTERED`;
+                const body = JSON.stringify({
+                    values: [[item, quantity, location]]
+                });
+
+                const response = await fetchWithTokenRefresh(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body
+                });
+
+                if (response && response.ok) {
+                    document.getElementById('addItemInput').value = '';
+                    document.getElementById('addQuantityInput').value = '';
+                    document.getElementById('addLocationInput').value = '';
+                    closeAddContainer();
+                    loadItems(); // Recarrega os itens após a adição
+                } else {
+                    console.error('Erro ao adicionar item');
+                }
+            } else {
+                alert('Preencha todos os campos');
+            }
+        }
+        
+        function closeAddContainer() {
+            document.getElementById('addContainer').classList.remove('active');
+            loadItems(); // Mostrar todos os itens após fechar o contêiner de adição
+        }
+
+        async function fetchWithTokenRefresh(url, options) {
+            if (!token || isTokenExpired()) {
+                await refreshToken();
+            }
+            if (token) {
+                options.headers = options.headers || {};
+                options.headers.Authorization = `Bearer ${token}`;
+                return fetch(url, options);
+            } else {
+                console.error('Token inválido');
+            }
+        }
+
+        function isTokenExpired() {
+            return Date.now() > tokenExpiresAt;
+        }
+
+        async function refreshToken() {
+            return new Promise((resolve, reject) => {
+                const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${SCOPES}`;
+                const authWindow = window.open(authUrl, '_blank', 'width=500,height=600');
+
+                const messageHandler = (event) => {
+                    if (event.origin !== window.location.origin) {
+                        return;
+                    }
+                    const { access_token, expires_in } = event.data;
+                    if (access_token && expires_in) {
+                        token = access_token;
+                        tokenExpiresAt = Date.now() + expires_in * 1000;
+                        window.removeEventListener('message', messageHandler);
+                        authWindow.close();
+                        resolve();
+                    } else {
+                        reject('Erro ao atualizar o token');
+                    }
+                };
+
+                window.addEventListener('message', messageHandler);
+            });
+        }
+
+        function checkUrlForToken() {
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+            const expiresIn = hashParams.get('expires_in');
+            if (accessToken && expiresIn) {
+                token = accessToken;
+                tokenExpiresAt = Date.now() + expiresIn * 1000;
+                window.location.hash = ''; // Limpa o token da URL
+            }
+        }
+
+        // Verifique a URL para o token de acesso e inicialize a API do Google
+        checkUrlForToken();
+        gapiLoaded();
+    </script>
+</body>
+</html>
