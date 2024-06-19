@@ -59,10 +59,10 @@
     <div class="container">
         <h1>Spotify Music Player</h1>
         <button id="authButton" onclick="authenticate()">Authenticate with Spotify</button>
-        <button id="playButton" onclick="play()">Play</button>
-        <button id="pauseButton" onclick="pause()">Pause</button>
-        <button onclick="nextTrack()">Next</button>
-        <button onclick="prevTrack()">Previous</button>
+        <button id="playButton" class="hidden" onclick="play()">Play</button>
+        <button id="pauseButton" class="hidden" onclick="pause()">Pause</button>
+        <button class="hidden" onclick="nextTrack()">Next</button>
+        <button class="hidden" onclick="prevTrack()">Previous</button>
         <input type="text" id="searchQuery" placeholder="Search for a song...">
         <button onclick="searchTrack()">Search</button>
         <ul id="searchResults"></ul>
@@ -73,8 +73,8 @@
     </div>
 
     <script>
-        const clientId = 'a2436b09d8004f63b8f9e9a994f9c787';  // Substitua pelo seu Client ID do Spotify
-        const redirectUri = 'https://psilva1987.github.io/PcbRapair/';  // Atualize para o URL onde seu app está hospedado
+        const clientId = 'YOUR_CLIENT_ID';  // Substitua pelo seu Client ID do Spotify
+        const redirectUri = 'http://localhost:8000';  // Atualize para o URL onde seu app está hospedado
         let accessToken = '';
         let deviceId = '';
         let currentTrack = null;
@@ -98,26 +98,31 @@
             if (accessToken) {
                 document.getElementById('authButton').classList.add('hidden');
                 window.history.pushState('', document.title, window.location.pathname);  // Remove o token da URL
+                alert('Authenticated successfully!');
+                getDevices();
+            } else {
+                alert('Failed to get access token');
             }
         }
 
         async function controlPlayback(action) {
-            await fetch(`https://api.spotify.com/v1/me/player/${action}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    device_ids: [deviceId]
-                })
-            }).then(response => {
+            try {
+                const response = await fetch(`https://api.spotify.com/v1/me/player/${action}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        device_ids: [deviceId]
+                    })
+                });
                 if (!response.ok) {
-                    throw new Error('Failed to control playback');
+                    throw new Error(`Failed to ${action}`);
                 }
-            }).catch(error => {
+            } catch (error) {
                 alert(`Failed to ${action}: ${error.message}`);
-            });
+            }
         }
 
         function play() {
@@ -151,21 +156,22 @@
             const query = document.getElementById('searchQuery').value;
             if (!query) return;
 
-            const url = `https://api.spotify.com/v1/search?type=track&q=${encodeURIComponent(query)}`;
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
+            try {
+                const url = `https://api.spotify.com/v1/search?type=track&q=${encodeURIComponent(query)}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    displaySearchResults(data.tracks.items);
+                } else {
+                    alert('Search failed');
+                    console.error('Search failed', response);
                 }
-            }).catch(error => {
+            } catch (error) {
                 alert(`Search failed: ${error.message}`);
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                displaySearchResults(data.tracks.items);
-            } else {
-                alert('Search failed');
-                console.error('Search failed', response);
             }
         }
 
@@ -182,72 +188,77 @@
 
         async function playTrack(track) {
             currentTrack = track;
-            const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ uris: [track.uri] })
-            }).catch(error => {
+            try {
+                const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ uris: [track.uri] })
+                });
+                if (response.ok) {
+                    document.getElementById('trackName').textContent = `${currentTrack.name} - ${currentTrack.artists.map(artist => artist.name).join(', ')}`;
+                    document.getElementById('trackInfo').classList.remove('hidden');
+                    isPlaying = true;
+                    updatePlayPauseButtons();
+                    startProgressInterval();
+                } else {
+                    alert('Playback failed');
+                    console.error('Playback failed', response);
+                }
+            } catch (error) {
                 alert(`Playback failed: ${error.message}`);
-            });
-
-            if (response.ok) {
-                document.getElementById('trackName').textContent = `${currentTrack.name} - ${currentTrack.artists.map(artist => artist.name).join(', ')}`;
-                document.getElementById('trackInfo').classList.remove('hidden');
-                isPlaying = true;
-                updatePlayPauseButtons();
-                startProgressInterval();
-            } else {
-                alert('Playback failed');
-                console.error('Playback failed', response);
             }
         }
 
         async function getDevices() {
-            const response = await fetch('https://api.spotify.com/v1/me/player/devices', {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            }).catch(error => {
-                alert(`Failed to fetch devices: ${error.message}`);
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.devices.length > 0) {
-                    deviceId = data.devices[0].id;
+            try {
+                const response = await fetch('https://api.spotify.com/v1/me/player/devices', {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.devices.length > 0) {
+                        deviceId = data.devices[0].id;
+                        alert('Device found: ' + deviceId);
+                        document.querySelectorAll('button.hidden').forEach(button => button.classList.remove('hidden'));
+                    } else {
+                        alert('No devices found');
+                        console.error('No devices found');
+                    }
                 } else {
-                    alert('No devices found');
-                    console.error('No devices found');
+                    alert('Failed to fetch devices');
+                    console.error('Failed to fetch devices', response);
                 }
-            } else {
-                alert('Failed to fetch devices');
-                console.error('Failed to fetch devices', response);
+            } catch (error) {
+                alert(`Failed to fetch devices: ${error.message}`);
             }
         }
 
         async function startProgressInterval() {
             progressInterval = setInterval(async () => {
-                const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
+                try {
+                    const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.is_playing) {
+                            const progress = data.progress_ms;
+                            const duration = data.item.duration_ms;
+                            document.getElementById('trackTime').textContent = formatTime(progress) + ' / ' + formatTime(duration);
+                        }
+                    } else {
+                        alert('Failed to fetch currently playing track');
+                        console.error('Failed to fetch currently playing track', response);
                     }
-                }).catch(error => {
+                } catch (error) {
                     alert(`Failed to fetch currently playing track: ${error.message}`);
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.is_playing) {
-                        const progress = data.progress_ms;
-                        const duration = data.item.duration_ms;
-                        document.getElementById('trackTime').textContent = formatTime(progress) + ' / ' + formatTime(duration);
-                    }
-                } else {
-                    alert('Failed to fetch currently playing track');
-                    console.error('Failed to fetch currently playing track', response);
                 }
             }, 1000);
         }
@@ -258,9 +269,8 @@
             return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
         }
 
-        window.onload = async () => {
+        window.onload = () => {
             setAccessToken();
-            await getDevices();
         };
     </script>
 </body>
