@@ -1,294 +1,167 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente Virtual de Reparo de Placas</title>
+    <title>Spotify Controller</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #282c34;
+            color: white;
         }
-        .result {
-            border: 1px solid #ccc;
+        .container {
+            text-align: center;
+        }
+        button, input[type="text"] {
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #1DB954;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1ed760;
+        }
+        input[type="text"] {
+            background-color: #333;
+            color: white;
             padding: 10px;
-            margin-bottom: 10px;
+            margin: 10px;
+            font-size: 16px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
-    <h1>Assistente Virtual de Reparo de Placas</h1>
-    <p id="greeting"></p>
-    <input type="text" id="search" placeholder="Digite sua pergunta...">
-    <button onclick="buscar()">Buscar</button>
-    <div id="resultados"></div>
-
+    <div class="container">
+        <h1>Spotify Controller</h1>
+        <button onclick="authenticate()">Authenticate with Spotify</button>
+        <button onclick="play()">Play</button>
+        <button onclick="pause()">Pause</button>
+        <button onclick="nextTrack()">Next</button>
+        <button onclick="prevTrack()">Previous</button>
+        <input type="text" id="searchQuery" placeholder="Search for a song...">
+        <button onclick="searchTrack()">Search</button>
+        <ul id="searchResults"></ul>
+    </div>
     <script>
-        const CLIENT_ID = 'SEU_CLIENT_ID';  // Substitua pelo seu CLIENT_ID
-        const API_KEY = 'SUA_API_KEY';  // Substitua pela sua API_KEY
-        const SHEET_ID = '19378bEpPrFa5sBLG2pfd-FsDerWUZtik8B6nRBvXDdQ';  // Substitua pelo ID da sua planilha
-        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+        const clientId = 'a2436b09d8004f63b8f9e9a994f9c787';  // Substitua pelo seu Client ID do Spotify
+        const redirectUri = 'https://psilva1987.github.io/RepairPCB/';  // Atualize para o URL onde seu app está hospedado
+        let accessToken = '';
 
-        let tokenClient;
-        let gapiInited = false;
-        let gisInited = false;
-
-        document.getElementById('loginButton').addEventListener('click', () => {
-            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${SCOPES}`;
+        function authenticate() {
+            const scopes = 'user-modify-playback-state user-read-playback-state';
+            const authUrl = `https://accounts.spotify.com/authorize?response_type=token&client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}`;
             window.location.href = authUrl;
-        });
-
-        function gapiLoaded() {
-            gapi.load('client', initializeGapiClient);
         }
 
-        async function initializeGapiClient() {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+        function getAccessTokenFromUrl() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            return params.get('access_token');
+        }
+
+        function setAccessToken() {
+            accessToken = getAccessTokenFromUrl();
+            if (accessToken) {
+                window.history.pushState('', document.title, window.location.pathname);  // Remove o token da URL
+            }
+        }
+
+        async function controlPlayback(action) {
+            const url = `https://api.spotify.com/v1/me/player/${action}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
             });
-            gapiInited = true;
-            maybeEnableButtons();
+
+            if (!response.ok) {
+                console.error('Playback control failed', response);
+            }
         }
 
-        function gisLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: '', // defined later
+        function play() {
+            controlPlayback('play');
+        }
+
+        function pause() {
+            controlPlayback('pause');
+        }
+
+        function nextTrack() {
+            controlPlayback('next');
+        }
+
+        function prevTrack() {
+            controlPlayback('previous');
+        }
+
+        async function searchTrack() {
+            const query = document.getElementById('searchQuery').value;
+            if (!query) {
+                return;
+            }
+
+            const url = `https://api.spotify.com/v1/search?type=track&q=${encodeURIComponent(query)}`;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
             });
-            gisInited = true;
-            maybeEnableButtons();
-        }
 
-        function maybeEnableButtons() {
-            if (gapiInited && gisInited) {
-                document.getElementById('loginButton').style.display = 'none';
-                document.getElementById('mainContainer').style.display = 'block';
-                loadItems();
-            }
-        }
-
-        async function loadItems() {
-            try {
-                const response = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: SHEET_ID,
-                    range: 'Lista!A2:C',
-                });
-                const range = response.result;
-                if (!range || !range.values || range.values.length == 0) {
-                    console.log('No values found.');
-                    return;
-                }
-                fullItemList = range.values;
-                displayItems(fullItemList);
-            } catch (err) {
-                console.error('Error fetching data', err);
-            }
-        }
-
-        function displayItems(items) {
-            const itemList = document.getElementById('itemList');
-            itemList.innerHTML = '';
-            items.forEach((item, index) => {
-                const listItem = document.createElement('li');
-                listItem.innerHTML = `
-                    <input type="checkbox" onchange="toggleHighlight(this, ${index})">
-                    <div class="bold-item">
-                        <span>${item[0]}</span> - <span>${item[1]}</span> - <span>${item[2]}</span>
-                    </div>
-                    <button onclick="editItem(${index})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                `;
-                itemList.appendChild(listItem);
-            });
-        }
-
-        function toggleHighlight(checkbox, index) {
-            const listItem = checkbox.parentElement;
-            if (checkbox.checked) {
-                listItem.classList.add('highlight');
-                listItem.querySelector('div').classList.add('checked-item');
+            if (response.ok) {
+                const data = await response.json();
+                displaySearchResults(data.tracks.items);
             } else {
-                listItem.classList.remove('highlight');
-                listItem.querySelector('div').classList.remove('checked-item');
+                console.error('Search failed', response);
             }
         }
 
-        function openAddContainer() {
-            document.getElementById('addContainer').classList.add('active');
-        }
-
-        function closeAddContainer() {
-            document.getElementById('addContainer').classList.remove('active');
-        }
-
-        function showAllItems() {
-            showAll = true;
-            loadItems();
-        }
-
-        function editItem(index) {
-            const realIndex = getRealIndex(index); // Obter o índice real do item
-            if (realIndex !== -1) {
-                const item = fullItemList[realIndex];
-                selectedItem = realIndex;
-                document.getElementById('editItemInput').value = item[0];
-                document.getElementById('editQuantityInput').value = item[1];
-                document.getElementById('editLocationInput').value = item[2];
-                document.getElementById('editContainer').classList.add('active');
-            }
-        }
-
-        function getRealIndex(filteredIndex) {
-            // Mapear o índice filtrado para o índice real
-            if (showAll) {
-                return filteredIndex;
-            } else {
-                let count = 0;
-                for (let i = 0; i < fullItemList.length; i++) {
-                    if (parseInt(fullItemList[i][1], 10) > 0) {
-                        if (count === filteredIndex) {
-                            return i;
-                        }
-                        count++;
-                    }
-                }
-            }
-            return -1;
-        }
-
-        async function updateItem() {
-            const item = document.getElementById('editItemInput').value;
-            const quantity = document.getElementById('editQuantityInput').value;
-            const location = document.getElementById('editLocationInput').value;
-
-            if (item && quantity && location && selectedItem !== null) {
-                const rowIndex = selectedItem + 2; // Linha na planilha (começa em 2 porque os dados começam na linha 2)
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A${rowIndex}:C${rowIndex}?valueInputOption=USER_ENTERED`;
-                const body = JSON.stringify({
-                    values: [[item, quantity, location]]
-                });
-
-                const response = await fetchWithTokenRefresh(url, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body
-                });
-
-                if (response && response.ok) {
-                    loadItems();
-                    closeEditContainer();
-                } else {
-                    console.error('Erro ao atualizar item');
-                }
-            } else {
-                alert('Preencha todos os campos');
-            }
-        }
-
-        function closeEditContainer() {
-            document.getElementById('editContainer').classList.remove('active');
-            loadItems(); // Mostrar todos os itens após fechar o contêiner de edição
-        }
-
-         async function addItem() {
-            const item = document.getElementById('addItemInput').value;
-            const quantity = document.getElementById('addQuantityInput').value;
-            const location = document.getElementById('addLocationInput').value;
-
-            if (item && quantity && location) {
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A1:C1:append?valueInputOption=USER_ENTERED`;
-                const body = JSON.stringify({
-                    values: [[item, quantity, location]]
-                });
-
-                const response = await fetchWithTokenRefresh(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body
-                });
-
-                if (response && response.ok) {
-                    document.getElementById('addItemInput').value = '';
-                    document.getElementById('addQuantityInput').value = '';
-                    document.getElementById('addLocationInput').value = '';
-                    closeAddContainer();
-                    loadItems(); // Recarrega os itens após a adição
-                } else {
-                    console.error('Erro ao adicionar item');
-                }
-            } else {
-                alert('Preencha todos os campos');
-            }
-        }
-        
-        function closeAddContainer() {
-            document.getElementById('addContainer').classList.remove('active');
-            loadItems(); // Mostrar todos os itens após fechar o contêiner de adição
-        }
-
-        async function fetchWithTokenRefresh(url, options) {
-            if (!token || isTokenExpired()) {
-                await refreshToken();
-            }
-            if (token) {
-                options.headers = options.headers || {};
-                options.headers.Authorization = `Bearer ${token}`;
-                return fetch(url, options);
-            } else {
-                console.error('Token inválido');
-            }
-        }
-
-        function isTokenExpired() {
-            return Date.now() > tokenExpiresAt;
-        }
-
-        async function refreshToken() {
-            return new Promise((resolve, reject) => {
-                const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=${SCOPES}`;
-                const authWindow = window.open(authUrl, '_blank', 'width=500,height=600');
-
-                const messageHandler = (event) => {
-                    if (event.origin !== window.location.origin) {
-                        return;
-                    }
-                    const { access_token, expires_in } = event.data;
-                    if (access_token && expires_in) {
-                        token = access_token;
-                        tokenExpiresAt = Date.now() + expires_in * 1000;
-                        window.removeEventListener('message', messageHandler);
-                        authWindow.close();
-                        resolve();
-                    } else {
-                        reject('Erro ao atualizar o token');
-                    }
-                };
-
-                window.addEventListener('message', messageHandler);
+        function displaySearchResults(tracks) {
+            const searchResults = document.getElementById('searchResults');
+            searchResults.innerHTML = '';
+            tracks.forEach(track => {
+                const li = document.createElement('li');
+                li.textContent = `${track.name} by ${track.artists.map(artist => artist.name).join(', ')}`;
+                li.onclick = () => playTrack(track.uri);
+                searchResults.appendChild(li);
             });
         }
 
-        function checkUrlForToken() {
-            const hashParams = new URLSearchParams(window.location.hash.substring(1));
-            const accessToken = hashParams.get('access_token');
-            const expiresIn = hashParams.get('expires_in');
-            if (accessToken && expiresIn) {
-                token = accessToken;
-                tokenExpiresAt = Date.now() + expiresIn * 1000;
-                window.location.hash = ''; // Limpa o token da URL
+        async function playTrack(uri) {
+            const url = `https://api.spotify.com/v1/me/player/play`;
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ uris: [uri] })
+            });
+
+            if (!response.ok) {
+                console.error('Playback failed', response);
             }
         }
 
-        // Verifique a URL para o token de acesso e inicialize a API do Google
-        checkUrlForToken();
-        gapiLoaded();
+        window.onload = setAccessToken;
     </script>
 </body>
 </html>
