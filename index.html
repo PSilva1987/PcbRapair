@@ -111,6 +111,12 @@
                 body: JSON.stringify({
                     device_ids: [deviceId]
                 })
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to control playback');
+                }
+            }).catch(error => {
+                alert(`Failed to ${action}: ${error.message}`);
             });
         }
 
@@ -150,12 +156,15 @@
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
+            }).catch(error => {
+                alert(`Search failed: ${error.message}`);
             });
 
             if (response.ok) {
                 const data = await response.json();
                 displaySearchResults(data.tracks.items);
             } else {
+                alert('Search failed');
                 console.error('Search failed', response);
             }
         }
@@ -172,32 +181,37 @@
         }
 
         async function playTrack(track) {
-    currentTrack = track;
-    const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-        method: 'PUT',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ uris: [track.uri] })
-    });
+            currentTrack = track;
+            const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ uris: [track.uri] })
+            }).catch(error => {
+                alert(`Playback failed: ${error.message}`);
+            });
 
-    if (response.ok) {
-        document.getElementById('trackName').textContent = `${currentTrack.name} - ${currentTrack.artists.map(artist => artist.name).join(', ')}`;
-        document.getElementById('trackInfo').classList.remove('hidden');
-        isPlaying = true;
-        updatePlayPauseButtons();
-        startProgressInterval();
-    } else {
-        console.error('Playback failed', response);
-    }
-}
+            if (response.ok) {
+                document.getElementById('trackName').textContent = `${currentTrack.name} - ${currentTrack.artists.map(artist => artist.name).join(', ')}`;
+                document.getElementById('trackInfo').classList.remove('hidden');
+                isPlaying = true;
+                updatePlayPauseButtons();
+                startProgressInterval();
+            } else {
+                alert('Playback failed');
+                console.error('Playback failed', response);
+            }
+        }
 
         async function getDevices() {
             const response = await fetch('https://api.spotify.com/v1/me/player/devices', {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 }
+            }).catch(error => {
+                alert(`Failed to fetch devices: ${error.message}`);
             });
 
             if (response.ok) {
@@ -205,9 +219,11 @@
                 if (data.devices.length > 0) {
                     deviceId = data.devices[0].id;
                 } else {
+                    alert('No devices found');
                     console.error('No devices found');
                 }
             } else {
+                alert('Failed to fetch devices');
                 console.error('Failed to fetch devices', response);
             }
         }
@@ -218,6 +234,8 @@
                     headers: {
                         'Authorization': `Bearer ${accessToken}`
                     }
+                }).catch(error => {
+                    alert(`Failed to fetch currently playing track: ${error.message}`);
                 });
 
                 if (response.ok) {
@@ -228,6 +246,7 @@
                         document.getElementById('trackTime').textContent = formatTime(progress) + ' / ' + formatTime(duration);
                     }
                 } else {
+                    alert('Failed to fetch currently playing track');
                     console.error('Failed to fetch currently playing track', response);
                 }
             }, 1000);
