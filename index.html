@@ -224,12 +224,13 @@
                 });
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('Devices:', data.devices);  // Debug: Mostrar dispositivos
                     if (data.devices.length > 0) {
                         deviceId = data.devices[0].id;
                         alert('Device found: ' + deviceId);
                         document.querySelectorAll('button.hidden').forEach(button => button.classList.remove('hidden'));
                     } else {
-                        alert('No devices found');
+                        alert('No devices found. Please open Spotify on a device and play a song.');
                         console.error('No devices found');
                     }
                 } else {
