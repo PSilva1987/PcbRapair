@@ -90,7 +90,9 @@
         function getAccessTokenFromUrl() {
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(hash);
-            return params.get('access_token');
+            const token = params.get('access_token');
+            alert('Token extracted: ' + token);
+            return token;
         }
 
         function setAccessToken() {
