@@ -652,6 +652,92 @@ function stopPlayerUpdates() {
         console.error("Erro ao verificar dispositivos:", error);
     }
 }
+        // Listener para mensagens do callback
+window.addEventListener('message', function(event) {
+    // Verificação de segurança IMPORTANTE
+    if (event.origin !== "https://psilva1987.github.io") {
+        console.warn("Mensagem de origem não confiável:", event.origin);
+        return;
+    }
+
+    console.log("Mensagem recebida:", event.data);
+    
+    if (event.data.type === 'spotify-auth' && event.data.access_token) {
+        handleAuthSuccess(event.data);
+    }
+});
+
+// Função para tratar o sucesso na autenticação
+function handleAuthSuccess(authData) {
+    // Verifica o state (proteção contra CSRF)
+    const savedState = localStorage.getItem('spotify_auth_state');
+    if (authData.state && authData.state !== savedState) {
+        console.error("State mismatch - possível ataque CSRF");
+        return;
+    }
+
+    // Armazena os tokens
+    localStorage.setItem('spotify_access_token', authData.access_token);
+    localStorage.setItem('spotify_token_expires', 
+        Date.now() + (authData.expires_in * 1000));
+
+    // Atualiza a UI
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('player-screen').style.display = 'block';
+    
+    // Inicia o player
+    initializePlayer(authData.access_token);
+}
+
+// Função de login atualizada
+function handleLogin() {
+    // Limpa tokens antigos
+    localStorage.removeItem('spotify_access_token');
+    
+    // Gera um state único
+    const state = generateRandomString(16);
+    localStorage.setItem('spotify_auth_state', state);
+    
+    // Constrói a URL de autenticação
+    const authUrl = new URL('https://accounts.spotify.com/authorize');
+    const params = {
+        client_id: clientId,
+        response_type: 'token',
+        redirect_uri: redirectUri,
+        scope: scopes.join(' '),
+        state: state,
+        show_dialog: 'true'  // Força mostrar o diálogo para debug
+    };
+    
+    Object.entries(params).forEach(([key, value]) => {
+        authUrl.searchParams.append(key, value);
+    });
+    
+    console.log("URL de autenticação:", authUrl.toString());
+    
+    // Abre a janela de autenticação
+    const authWindow = window.open(
+        authUrl.toString(),
+        'SpotifyAuth',
+        'width=500,height=800,scrollbars=yes,resizable=yes'
+    );
+    
+    // Verifica se a janela foi bloqueada
+    if (!authWindow) {
+        alert('Por favor, permita popups para este site');
+        return;
+    }
+    
+    // Verificador de fechamento da janela
+    const checkWindowClosed = setInterval(() => {
+        if (authWindow.closed) {
+            clearInterval(checkWindowClosed);
+            if (!localStorage.getItem('spotify_access_token')) {
+                console.log("Usuário fechou a janela sem autenticar");
+            }
+        }
+    }, 500);
+}
         
     </script>
 </body>
