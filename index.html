@@ -219,6 +219,87 @@
     </div>
 
     <script>
+
+        // Adicione este listener no início do seu script
+window.addEventListener('message', function(event) {
+    // IMPORTANTE: Verifique a origem para segurança
+    if (event.origin !== "https://psilva1987.github.io") return;
+    
+    console.log("Mensagem recebida:", event.data);
+    
+    if (event.data.type === 'spotify-auth') {
+        const { access_token, expires_in } = event.data;
+        
+        // Verifique o state para segurança
+        const savedState = localStorage.getItem('spotify_auth_state');
+        if (event.data.state && event.data.state !== savedState) {
+            console.error("State mismatch!");
+            return;
+        }
+        
+        // Armazene os tokens
+        localStorage.setItem('spotify_access_token', access_token);
+        localStorage.setItem('spotify_token_expires', 
+            Date.now() + (expires_in * 1000));
+        
+        // Atualize a UI
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('player-screen').style.display = 'block';
+        
+        // Inicie o player
+        initializePlayer(access_token);
+    }
+});
+
+// Modifique sua função de login
+function handleLogin() {
+    // Limpe tokens antigos
+    localStorage.removeItem('spotify_access_token');
+    
+    // Crie um state único
+    const state = generateRandomString(16);
+    localStorage.setItem('spotify_auth_state', state);
+    
+    // Construa a URL de autenticação
+    const authUrl = new URL('https://accounts.spotify.com/authorize');
+    const params = {
+        client_id: clientId,
+        response_type: 'token',
+        redirect_uri: redirectUri,
+        scope: scopes.join(' '),
+        state: state,
+        show_dialog: 'false'
+    };
+    
+    Object.entries(params).forEach(([key, value]) => {
+        authUrl.searchParams.append(key, value);
+    });
+    
+    // Abra a janela de autenticação
+    const authWindow = window.open(
+        authUrl.toString(),
+        'SpotifyAuth',
+        'width=500,height=800,scrollbars=yes,resizable=yes'
+    );
+    
+    // Verifique se a janela foi bloqueada
+    if (!authWindow) {
+        alert('Por favor, permita popups para este site');
+        return;
+    }
+    
+    // Verificador de fechamento da janela
+    const checkWindowClosed = setInterval(() => {
+        if (authWindow.closed) {
+            clearInterval(checkWindowClosed);
+            if (!localStorage.getItem('spotify_access_token')) {
+                console.log("Usuário fechou a janela sem autenticar");
+            }
+        }
+    }, 500);
+}
+
+        
         // Configurações do App
         const clientId = 'a320634e6ebf4bb58de016369cf5b1a1'; 
         const redirectUri = 'https://psilva1987.github.io/PcbRapair/callback';
