@@ -5,56 +5,55 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             console.log("URL completa:", window.location.href);
-            console.log("Hash recebido:", window.location.hash);
             
-            if (window.location.hash) {
-                try {
-                    const params = new URLSearchParams(window.location.hash.substring(1));
-                    const tokenData = {
-                        access_token: params.get('access_token'),
-                        expires_in: params.get('expires_in'),
-                        token_type: params.get('token_type'),
-                        state: params.get('state')
-                    };
+            // Verifica tanto hash quanto query parameters
+            const hash = window.location.hash.substring(1);
+            const searchParams = new URLSearchParams(window.location.search);
+            const hashParams = new URLSearchParams(hash);
 
-                    console.log("Token extraído:", tokenData);
+            // Tenta obter o token de ambos os lugares
+            const tokenData = {
+                access_token: hashParams.get('access_token') || searchParams.get('access_token'),
+                expires_in: hashParams.get('expires_in') || searchParams.get('expires_in'),
+                token_type: hashParams.get('token_type') || searchParams.get('token_type'),
+                state: hashParams.get('state') || searchParams.get('state')
+            };
+
+            console.log("Token data:", tokenData);
+
+            if (tokenData.access_token) {
+                // Envia para a janela principal se existir
+                if (window.opener) {
+                    window.opener.postMessage({
+                        type: 'spotify-auth',
+                        ...tokenData
+                    }, "https://psilva1987.github.io");
                     
-                    if (tokenData.access_token) {
-                        // Envia para a janela principal
-                        if (window.opener) {
-                            window.opener.postMessage({
-                                type: 'spotify-auth',
-                                ...tokenData
-                            }, "https://psilva1987.github.io");
-                            
-                            // Fecha após 1 segundo (tempo para enviar a mensagem)
-                            setTimeout(function() {
-                                window.close();
-                            }, 1000);
-                        } else {
-                            document.body.innerHTML = `
-                                <h2>Autenticação concluída</h2>
-                                <p>Você pode fechar esta janela.</p>
-                                <script>
-                                    localStorage.setItem('spotify_temp_token', '${tokenData.access_token}');
-                               <\/script>
-                            `;
-                        }
-                    } else {
-                        showError("Token de acesso não encontrado na URL");
-                    }
-                } catch (error) {
-                    showError(`Erro ao processar token: ${error.message}`);
+                    // Fecha após um breve delay
+                    setTimeout(function() {
+                        window.close();
+                    }, 500);
+                } else {
+                    // Fallback: armazena localmente se não houver janela pai
+                    localStorage.setItem('spotify_temp_token', tokenData.access_token);
+                    document.body.innerHTML = `
+                        <h2>Autenticação concluída</h2>
+                        <p>Você pode fechar esta janela.</p>
+                        <button onclick="window.close()">Fechar</button>
+                    `;
                 }
             } else {
-                showError("Nenhum token recebido - o hash está vazio");
-            }
-
-            function showError(message) {
-                console.error(message);
+                // Debug avançado - mostra todos os parâmetros recebidos
+                const allParams = {
+                    hashParams: Object.fromEntries(hashParams),
+                    searchParams: Object.fromEntries(searchParams)
+                };
+                console.error("Nenhum token encontrado. Parâmetros recebidos:", allParams);
+                
                 document.body.innerHTML = `
                     <h2>Erro na autenticação</h2>
-                    <p>${message}</p>
+                    <p>Nenhum token recebido. Parâmetros recebidos:</p>
+                    <pre>${JSON.stringify(allParams, null, 2)}</pre>
                     <button onclick="window.close()">Fechar</button>
                 `;
             }
