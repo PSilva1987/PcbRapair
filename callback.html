@@ -3,31 +3,40 @@
 <head>
     <title>Spotify Callback</title>
     <script>
-        function sendTokenToParent() {
-            if (window.location.hash) {
-                const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                const tokenData = {
-                    type: 'spotify-auth-response',
-                    access_token: hashParams.get('access_token'),
-                    expires_in: hashParams.get('expires_in'),
-                    token_type: hashParams.get('token_type'),
-                    state: hashParams.get('state')
-                };
-                
-                // Envia para a janela principal
-                if (window.opener) {
-                    window.opener.postMessage(tokenData, "https://psilva1987.github.io");
-                    window.close();
+        window.onload = function() {
+            try {
+                if (window.location.hash) {
+                    const hash = window.location.hash.substring(1);
+                    const params = new URLSearchParams(hash);
+                    
+                    const tokenData = {
+                        type: 'spotify-auth',
+                        access_token: params.get('access_token'),
+                        expires_in: params.get('expires_in'),
+                        token_type: params.get('token_type'),
+                        state: params.get('state')
+                    };
+                    
+                    console.log("Dados do token:", tokenData);
+                    
+                    // Envia para a janela principal
+                    if (window.opener) {
+                        window.opener.postMessage(tokenData, "https://psilva1987.github.io");
+                        setTimeout(() => { window.close() }, 500);
+                    } else {
+                        document.body.innerHTML = '<h2>Autenticação concluída</h2><p>Feche esta janela e volte ao player.</p>';
+                    }
                 } else {
-                    document.body.innerHTML = '<h2>Autenticação concluída</h2><p>Você pode fechar esta janela.</p>';
+                    document.body.innerHTML = '<h2>Erro: Nenhum token recebido</h2>';
                 }
-            } else {
-                document.body.innerHTML = '<h2>Erro: Nenhum token recebido</h2>';
+            } catch (error) {
+                console.error("Erro no callback:", error);
+                document.body.innerHTML = `<h2>Erro</h2><p>${error.message}</p>`;
             }
-        }
+        };
     </script>
 </head>
-<body onload="sendTokenToParent()">
+<body>
     <p>Processando autenticação...</p>
 </body>
 </html>
