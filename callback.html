@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spotify Auth Callback</title>
+</head>
+<body>
+  <script>
+    if (window.location.hash) {
+      const params = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = params.get('access_token');
+      const expiresIn = params.get('expires_in');
+      const state = params.get('state');
+      const storedState = sessionStorage.getItem('spotify_auth_state');
+
+      if (accessToken && (!state || state === storedState)) {
+        localStorage.setItem('spotify_access_token', accessToken);
+        localStorage.setItem('spotify_token_expires', Date.now() + (expiresIn * 1000));
+      }
+    }
+    window.close();
+  </script>
+</body>
+</html>
