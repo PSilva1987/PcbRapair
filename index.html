@@ -1,56 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spotify Web Playback SDK Example</title>
+    <title>Spotify Web Player</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 0;
+            padding: 20px;
             background-color: #121212;
             color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
         
         .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
         }
         
         h1 {
             color: #1DB954;
-            text-align: center;
+            margin-bottom: 30px;
         }
         
-        .player-container {
+        .player {
             background-color: #181818;
             border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-        
-        .track-info {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
         
         .album-cover {
-            width: 150px;
-            height: 150px;
-            border-radius: 5px;
-            margin-right: 20px;
+            width: 200px;
+            height: 200px;
+            border-radius: 10px;
+            margin: 0 auto 20px;
+            object-fit: cover;
+            display: block;
         }
         
-        .track-details h2 {
+        .track-info {
+            margin-bottom: 25px;
+        }
+        
+        .track-name {
+            font-size: 22px;
+            margin: 0 0 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .artist-name {
+            color: #b3b3b3;
             margin: 0;
-            font-size: 24px;
+            font-size: 16px;
         }
         
-        .track-details p {
-            margin: 5px 0 0;
+        .progress-container {
+            margin-bottom: 25px;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background-color: #535353;
+            border-radius: 2px;
+            margin-bottom: 5px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            background-color: #1DB954;
+            width: 0%;
+        }
+        
+        .time {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
             color: #b3b3b3;
         }
         
@@ -58,65 +91,38 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            gap: 15px;
             margin-bottom: 20px;
         }
         
-        .progress-container {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 5px;
-            background-color: #535353;
-            border-radius: 5px;
-            margin-bottom: 5px;
-        }
-        
-        .progress {
-            height: 100%;
-            background-color: #1DB954;
-            border-radius: 5px;
-            width: 0%;
-        }
-        
-        .time-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #b3b3b3;
-        }
-        
-        button {
-            background-color: #1DB954;
-            color: white;
+        .btn {
+            background: none;
             border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            color: white;
             font-size: 20px;
-            margin: 0 15px;
             cursor: pointer;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
+            border-radius: 50%;
         }
         
-        button:disabled {
-            background-color: #535353;
-            cursor: not-allowed;
-        }
-        
-        .secondary-btn {
-            background-color: transparent;
-            color: #b3b3b3;
+        .btn-play {
+            background-color: #1DB954;
+            width: 50px;
+            height: 50px;
             font-size: 24px;
         }
         
-        .auth-container {
-            text-align: center;
-            margin-top: 50px;
+        .btn.active {
+            color: #1DB954;
+        }
+        
+        .btn:disabled {
+            color: #535353;
+            cursor: not-allowed;
         }
         
         .auth-btn {
@@ -129,79 +135,79 @@
             font-weight: bold;
             cursor: pointer;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            margin-top: 20px;
         }
         
-        .device-status {
-            text-align: center;
+        .status {
             margin-top: 20px;
             color: #b3b3b3;
+            font-size: 14px;
         }
         
-        .status-message {
-            text-align: center;
-            margin-top: 20px;
-            color: #b3b3b3;
-            font-style: italic;
+        .device-id {
+            font-family: monospace;
+            background-color: #282828;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            word-break: break-all;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Spotify Web Playback SDK</h1>
+        <h1>Spotify Web Player</h1>
         
-        <div id="auth-container" class="auth-container">
-            <button id="auth-btn" class="auth-btn">Login with Spotify</button>
+        <div id="auth-section">
+            <button id="auth-btn" class="auth-btn">Login com Spotify</button>
         </div>
         
-        <div id="player-container" class="player-container" style="display: none;">
+        <div id="player-section" class="player" style="display: none;">
+            <img id="album-cover" class="album-cover" src="https://via.placeholder.com/200" alt="Album Cover">
+            
             <div class="track-info">
-                <img id="album-cover" class="album-cover" src="https://via.placeholder.com/150" alt="Album Cover">
-                <div class="track-details">
-                    <h2 id="track-name">Not Playing</h2>
-                    <p id="track-artist">—</p>
-                </div>
+                <h2 id="track-name" class="track-name">Nenhuma música tocando</h2>
+                <p id="artist-name" class="artist-name">—</p>
             </div>
             
             <div class="progress-container">
                 <div class="progress-bar">
-                    <div class="progress" id="progress-bar"></div>
+                    <div class="progress" id="progress"></div>
                 </div>
-                <div class="time-info">
+                <div class="time">
                     <span id="current-time">0:00</span>
                     <span id="duration">0:00</span>
                 </div>
             </div>
             
             <div class="controls">
-                <button id="shuffle-btn" class="secondary-btn" title="Shuffle">🔀</button>
-                <button id="prev-btn" class="secondary-btn" title="Previous">⏮</button>
-                <button id="play-btn" title="Play">▶</button>
-                <button id="next-btn" class="secondary-btn" title="Next">⏭</button>
-                <button id="repeat-btn" class="secondary-btn" title="Repeat">🔁</button>
+                <button id="shuffle-btn" class="btn" title="Embaralhar">🔀</button>
+                <button id="prev-btn" class="btn" title="Anterior">⏮</button>
+                <button id="play-btn" class="btn btn-play" title="Play/Pause">▶</button>
+                <button id="next-btn" class="btn" title="Próxima">⏭</button>
+                <button id="repeat-btn" class="btn" title="Repetir">🔁</button>
             </div>
             
-            <div class="device-status" id="device-status">
-                Device: Not connected
+            <div class="status">
+                <p>Dispositivo conectado:</p>
+                <p id="device-id" class="device-id">Aguardando conexão...</p>
             </div>
         </div>
-        
-        <div class="status-message" id="status-message"></div>
     </div>
 
     <script>
-        // Configuration
-        const clientId = 'a320634e6ebf4bb58de016369cf5b1a1'; // Replace with your client ID
-        const redirectUri = 'https://psilva1987.github.io/PcbRapair';
+        // 1. Configuração - ATENÇÃO A ESTA PARTE!
+        const clientId = 'a320634e6ebf4bb58de016369cf5b1a1'; // Substitua pelo seu Client ID do Spotify Dashboard
+        const redirectUri = 'https://psilva1987.github.io/PcbRapair/'; // DEVE SER IGUAL AO CONFIGURADO NO SPOTIFY DASHBOARD
         
-        // DOM Elements
-        const authContainer = document.getElementById('auth-container');
+        // 2. Elementos DOM
+        const authSection = document.getElementById('auth-section');
         const authBtn = document.getElementById('auth-btn');
-        const playerContainer = document.getElementById('player-container');
+        const playerSection = document.getElementById('player-section');
         const albumCover = document.getElementById('album-cover');
         const trackName = document.getElementById('track-name');
-        const trackArtist = document.getElementById('track-artist');
-        const progressBar = document.getElementById('progress-bar');
+        const artistName = document.getElementById('artist-name');
+        const progress = document.getElementById('progress');
         const currentTime = document.getElementById('current-time');
         const duration = document.getElementById('duration');
         const playBtn = document.getElementById('play-btn');
@@ -209,10 +215,9 @@
         const nextBtn = document.getElementById('next-btn');
         const shuffleBtn = document.getElementById('shuffle-btn');
         const repeatBtn = document.getElementById('repeat-btn');
-        const deviceStatus = document.getElementById('device-status');
-        const statusMessage = document.getElementById('status-message');
+        const deviceId = document.getElementById('device-id');
         
-        // Player state
+        // 3. Estado do player
         const playerState = {
             accessToken: null,
             deviceId: null,
@@ -220,44 +225,44 @@
             isPlaying: false,
             currentTrack: null,
             progressInterval: null,
-            volume: 0.5,
             position: 0,
-            duration: 0,
-            repeatMode: 0, // 0 = off, 1 = context, 2 = track
-            isShuffled: false
+            trackDuration: 0,
+            isShuffled: false,
+            repeatMode: 0 // 0=off, 1=context, 2=track
         };
         
-        // Initialize the app
+        // 4. Inicialização
         function init() {
-            // Check for access token in URL (after redirect from Spotify)
+            // Verificar se há token na URL (após redirecionamento)
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(hash);
             const accessToken = params.get('access_token');
             
-            // Clear the URL after getting the token
             if (accessToken) {
-                history.replaceState(null, null, ' ');
+                // Limpar a URL
+                history.replaceState(null, null, window.location.pathname);
+                
                 playerState.accessToken = accessToken;
-                authContainer.style.display = 'none';
-                playerContainer.style.display = 'block';
-                setupWebPlaybackSDK();
+                authSection.style.display = 'none';
+                playerSection.style.display = 'block';
+                initializePlayer();
             }
             
             setupEventListeners();
         }
         
-        // Setup event listeners
+        // 5. Configurar listeners
         function setupEventListeners() {
-            authBtn.addEventListener('click', authenticateWithSpotify);
+            authBtn.addEventListener('click', authenticate);
             playBtn.addEventListener('click', togglePlay);
-            prevBtn.addEventListener('click', playPrevious);
-            nextBtn.addEventListener('click', playNext);
+            prevBtn.addEventListener('click', previousTrack);
+            nextBtn.addEventListener('click', nextTrack);
             shuffleBtn.addEventListener('click', toggleShuffle);
             repeatBtn.addEventListener('click', toggleRepeat);
         }
         
-        // Authenticate with Spotify
-        function authenticateWithSpotify() {
+        // 6. Autenticação com Spotify
+        function authenticate() {
             const scopes = [
                 'streaming',
                 'user-read-email',
@@ -267,46 +272,45 @@
             ];
             
             const authUrl = new URL('https://accounts.spotify.com/authorize');
+            
+            // Parâmetros OAuth 2.0
             const params = {
                 response_type: 'token',
                 client_id: clientId,
                 scope: scopes.join(' '),
                 redirect_uri: redirectUri,
-                show_dialog: 'true'
+                show_dialog: 'false'
             };
             
+            // Adicionar parâmetros à URL
             Object.keys(params).forEach(key => {
                 authUrl.searchParams.append(key, params[key]);
             });
             
-            statusMessage.textContent = 'Redirecting to Spotify authentication...';
+            // Redirecionar para página de autenticação
             window.location.href = authUrl.toString();
         }
         
-        // Setup Web Playback SDK
-        function setupWebPlaybackSDK() {
-            statusMessage.textContent = 'Connecting to Spotify...';
-            
-            // Load the Web Playback SDK script
+        // 7. Inicializar o Web Playback SDK
+        function initializePlayer() {
+            // Carregar o SDK dinamicamente
             const script = document.createElement('script');
             script.src = 'https://sdk.scdn.co/spotify-player.js';
             script.onload = () => {
                 window.onSpotifyWebPlaybackSDKReady = () => {
                     playerState.player = new Spotify.Player({
-                        name: 'Web Playback SDK Example',
+                        name: 'Meu Web Player',
                         getOAuthToken: cb => { cb(playerState.accessToken); },
-                        volume: playerState.volume
+                        volume: 0.5
                     });
                     
-                    // Setup player event listeners
+                    // Configurar listeners
                     setupPlayerListeners();
                     
-                    // Connect to the player
+                    // Conectar ao player
                     playerState.player.connect().then(success => {
                         if (success) {
-                            statusMessage.textContent = 'Connected successfully! Play something on your Spotify app and select this device.';
-                        } else {
-                            statusMessage.textContent = 'Failed to connect to player. Please try again.';
+                            deviceId.textContent = 'Conectando...';
                         }
                     });
                 };
@@ -314,19 +318,19 @@
             document.body.appendChild(script);
         }
         
-        // Setup player event listeners
+        // 8. Configurar listeners do player
         function setupPlayerListeners() {
-            // Ready
+            // Quando o player estiver pronto
             playerState.player.addListener('ready', ({ device_id }) => {
                 playerState.deviceId = device_id;
-                deviceStatus.textContent = `Device: ${device_id.substring(0, 8)}...`;
+                deviceId.textContent = device_id;
                 transferPlayback(device_id);
             });
             
-            // Player state changed
+            // Quando o estado do player mudar
             playerState.player.addListener('player_state_changed', state => {
                 if (!state) {
-                    statusMessage.textContent = 'No track currently playing. Play something on your Spotify app.';
+                    // Nenhuma música tocando
                     playerState.isPlaying = false;
                     playerState.currentTrack = null;
                     updatePlayerUI();
@@ -336,7 +340,7 @@
                 playerState.isPlaying = !state.paused;
                 playerState.currentTrack = state.track_window.current_track;
                 playerState.position = state.position;
-                playerState.duration = state.duration;
+                playerState.trackDuration = state.duration;
                 playerState.isShuffled = state.shuffle;
                 playerState.repeatMode = state.repeat_mode;
                 
@@ -345,38 +349,31 @@
                 updateControlStates();
             });
             
-            // Error handling
-            playerState.player.addListener('initialization_error', ({ message }) => {
-                console.error('Initialization Error:', message);
-                statusMessage.textContent = `Initialization Error: ${message}`;
-            });
-            
+            // Tratamento de erros
             playerState.player.addListener('authentication_error', ({ message }) => {
-                console.error('Authentication Error:', message);
-                statusMessage.textContent = `Authentication Error: ${message}`;
-                playerState.accessToken = null;
-                authContainer.style.display = 'block';
-                playerContainer.style.display = 'none';
+                console.error('Erro de autenticação:', message);
+                alert('Erro de autenticação: ' + message);
             });
             
             playerState.player.addListener('account_error', ({ message }) => {
-                console.error('Account Error:', message);
-                statusMessage.textContent = `Account Error: ${message}`;
+                console.error('Erro de conta:', message);
             });
             
             playerState.player.addListener('playback_error', ({ message }) => {
-                console.error('Playback Error:', message);
-                statusMessage.textContent = `Playback Error: ${message}`;
+                console.error('Erro de reprodução:', message);
             });
             
-            // Disconnected
+            playerState.player.addListener('initialization_error', ({ message }) => {
+                console.error('Erro de inicialização:', message);
+            });
+            
             playerState.player.addListener('not_ready', ({ device_id }) => {
-                console.log('Device ID has gone offline', device_id);
-                deviceStatus.textContent = `Device offline: ${device_id.substring(0, 8)}...`;
+                console.log('Dispositivo offline:', device_id);
+                deviceId.textContent = `${device_id} (offline)`;
             });
         }
         
-        // Transfer playback to this device
+        // 9. Transferir reprodução para este dispositivo
         function transferPlayback(deviceId) {
             fetch('https://api.spotify.com/v1/me/player', {
                 method: 'PUT',
@@ -388,63 +385,29 @@
                     device_ids: [deviceId],
                     play: false
                 })
-            }).then(() => {
-                statusMessage.textContent = 'Ready to play! Select this device in your Spotify app.';
             }).catch(error => {
-                console.error('Error transferring playback:', error);
-                statusMessage.textContent = 'Error transferring playback. Make sure Spotify is open on another device.';
+                console.error('Erro ao transferir reprodução:', error);
             });
         }
         
-        // Toggle play/pause
+        // 10. Controles do player
         function togglePlay() {
-            if (!playerState.accessToken) {
-                authenticateWithSpotify();
-                return;
-            }
-            
             if (playerState.isPlaying) {
-                playerState.player.pause().then(() => {
-                    statusMessage.textContent = 'Playback paused';
-                });
+                playerState.player.pause();
             } else {
-                playerState.player.resume().then(() => {
-                    statusMessage.textContent = 'Playback resumed';
-                });
+                playerState.player.resume();
             }
         }
         
-        // Play previous track
-        function playPrevious() {
-            if (!playerState.accessToken) {
-                authenticateWithSpotify();
-                return;
-            }
-            
-            playerState.player.previousTrack().then(() => {
-                statusMessage.textContent = 'Playing previous track';
-            });
+        function previousTrack() {
+            playerState.player.previousTrack();
         }
         
-        // Play next track
-        function playNext() {
-            if (!playerState.accessToken) {
-                authenticateWithSpotify();
-                return;
-            }
-            
-            playerState.player.nextTrack().then(() => {
-                statusMessage.textContent = 'Playing next track';
-            });
+        function nextTrack() {
+            playerState.player.nextTrack();
         }
         
-        // Toggle shuffle
         function toggleShuffle() {
-            if (!playerState.accessToken) {
-                authenticateWithSpotify();
-                return;
-            }
-            
             const newShuffleState = !playerState.isShuffled;
             
             fetch(`https://api.spotify.com/v1/me/player/shuffle?state=${newShuffleState}`, {
@@ -454,33 +417,17 @@
                 }
             }).then(() => {
                 playerState.isShuffled = newShuffleState;
-                shuffleBtn.style.color = newShuffleState ? '#1DB954' : '#b3b3b3';
-                statusMessage.textContent = newShuffleState ? 'Shuffle enabled' : 'Shuffle disabled';
-            }).catch(error => {
-                console.error('Error toggling shuffle:', error);
-                statusMessage.textContent = 'Error toggling shuffle';
+                shuffleBtn.classList.toggle('active', newShuffleState);
             });
         }
         
-        // Toggle repeat
         function toggleRepeat() {
-            if (!playerState.accessToken) {
-                authenticateWithSpotify();
-                return;
-            }
-            
             let newRepeatMode;
             
             switch(playerState.repeatMode) {
-                case 0: // off → context
-                    newRepeatMode = 1;
-                    break;
-                case 1: // context → track
-                    newRepeatMode = 2;
-                    break;
-                case 2: // track → off
-                    newRepeatMode = 0;
-                    break;
+                case 0: newRepeatMode = 1; break; // off → context
+                case 1: newRepeatMode = 2; break; // context → track
+                case 2: newRepeatMode = 0; break; // track → off
             }
             
             fetch(`https://api.spotify.com/v1/me/player/repeat?state=${getRepeatStateString(newRepeatMode)}`, {
@@ -491,14 +438,9 @@
             }).then(() => {
                 playerState.repeatMode = newRepeatMode;
                 updateRepeatButton();
-                statusMessage.textContent = getRepeatStatusMessage(newRepeatMode);
-            }).catch(error => {
-                console.error('Error toggling repeat:', error);
-                statusMessage.textContent = 'Error toggling repeat';
             });
         }
         
-        // Convert repeat mode to string
         function getRepeatStateString(mode) {
             switch(mode) {
                 case 0: return 'off';
@@ -507,95 +449,81 @@
             }
         }
         
-        // Get repeat status message
-        function getRepeatStatusMessage(mode) {
-            switch(mode) {
-                case 0: return 'Repeat disabled';
-                case 1: return 'Repeat playlist enabled';
-                case 2: return 'Repeat track enabled';
-            }
-        }
-        
-        // Update repeat button appearance
-        function updateRepeatButton() {
-            switch(playerState.repeatMode) {
-                case 0:
-                    repeatBtn.textContent = '🔁';
-                    repeatBtn.style.color = '#b3b3b3';
-                    break;
-                case 1:
-                    repeatBtn.textContent = '🔁';
-                    repeatBtn.style.color = '#1DB954';
-                    break;
-                case 2:
-                    repeatBtn.textContent = '🔂';
-                    repeatBtn.style.color = '#1DB954';
-                    break;
-            }
-        }
-        
-        // Update control button states
-        function updateControlStates() {
-            shuffleBtn.style.color = playerState.isShuffled ? '#1DB954' : '#b3b3b3';
-            updateRepeatButton();
-        }
-        
-        // Update player UI
+        // 11. Atualizar UI
         function updatePlayerUI() {
             if (playerState.currentTrack) {
                 trackName.textContent = playerState.currentTrack.name;
-                trackArtist.textContent = playerState.currentTrack.artists.map(a => a.name).join(', ');
-                albumCover.src = playerState.currentTrack.album.images[0]?.url || 'https://via.placeholder.com/150';
+                artistName.textContent = playerState.currentTrack.artists.map(a => a.name).join(', ');
+                albumCover.src = playerState.currentTrack.album.images[0]?.url || 'https://via.placeholder.com/200';
                 playBtn.textContent = playerState.isPlaying ? '⏸' : '▶';
             } else {
-                trackName.textContent = 'Not Playing';
-                trackArtist.textContent = '—';
-                albumCover.src = 'https://via.placeholder.com/150';
+                trackName.textContent = 'Nenhuma música tocando';
+                artistName.textContent = '—';
+                albumCover.src = 'https://via.placeholder.com/200';
                 playBtn.textContent = '▶';
             }
         }
         
-        // Update progress bar
         function updateProgressBar() {
             if (playerState.progressInterval) {
                 clearInterval(playerState.progressInterval);
             }
             
-            if (!playerState.duration) {
-                progressBar.style.width = '0%';
+            if (!playerState.trackDuration) {
+                progress.style.width = '0%';
                 currentTime.textContent = '0:00';
                 duration.textContent = '0:00';
                 return;
             }
             
-            // Format time (ms → mm:ss)
             const formatTime = (ms) => {
                 const minutes = Math.floor(ms / 60000);
                 const seconds = Math.floor((ms % 60000) / 1000);
                 return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
             };
             
-            // Initial update
             const update = () => {
-                const progressPercent = (playerState.position / playerState.duration) * 100;
-                progressBar.style.width = `${progressPercent}%`;
+                const progressPercent = (playerState.position / playerState.trackDuration) * 100;
+                progress.style.width = `${progressPercent}%`;
                 currentTime.textContent = formatTime(playerState.position);
-                duration.textContent = formatTime(playerState.duration);
+                duration.textContent = formatTime(playerState.trackDuration);
                 
-                if (playerState.isPlaying && playerState.position < playerState.duration) {
-                    playerState.position += 1000; // Increment by 1 second
+                if (playerState.isPlaying && playerState.position < playerState.trackDuration) {
+                    playerState.position += 1000;
                 }
             };
             
             update();
             
-            // Update every second if playing
             if (playerState.isPlaying) {
                 playerState.progressInterval = setInterval(update, 1000);
             }
         }
         
-        // Initialize when DOM is loaded
+        function updateControlStates() {
+            shuffleBtn.classList.toggle('active', playerState.isShuffled);
+            updateRepeatButton();
+        }
+        
+        function updateRepeatButton() {
+            repeatBtn.classList.remove('active');
+            
+            switch(playerState.repeatMode) {
+                case 0:
+                    repeatBtn.textContent = '🔁';
+                    break;
+                case 1:
+                    repeatBtn.textContent = '🔁';
+                    repeatBtn.classList.add('active');
+                    break;
+                case 2:
+                    repeatBtn.textContent = '🔂';
+                    repeatBtn.classList.add('active');
+                    break;
+            }
+        }
+        
+        // 12. Inicializar quando o DOM estiver pronto
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
