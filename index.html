@@ -300,76 +300,102 @@ function handleLogin() {
 }
 
         
-        // Configurações do App
-        const clientId = 'a320634e6ebf4bb58de016369cf5b1a1'; 
-        const redirectUri = 'https://psilva1987.github.io/PcbRapair/callback';
-        const scopes = [
-            'user-read-private',
-            'user-read-email',
-            'user-read-playback-state',
-            'user-modify-playback-state',
-            'user-read-currently-playing'
-        ];
+        // Configurações
+const clientId = 'a320634e6ebf4bb58de016369cf5b1a1';
+const redirectUri = 'https://psilva1987.github.io/PcbRapair/callback.html';
+const scopes = [
+    'user-read-private',
+    'user-read-email',
+    'user-read-playback-state',
+    'user-modify-playback-state',
+    'user-read-currently-playing'
+];
 
-        // Elementos DOM
-        const loginScreen = document.getElementById('login-screen');
-        const playerScreen = document.getElementById('player-screen');
-        const loginBtn = document.getElementById('login-btn');
-        const playBtn = document.getElementById('play-btn');
-        const prevBtn = document.getElementById('prev-btn');
-        const nextBtn = document.getElementById('next-btn');
-        const userName = document.getElementById('user-name');
-        const userAvatar = document.getElementById('user-avatar');
-        const trackName = document.getElementById('track-name');
-        const artistName = document.getElementById('artist-name');
-        const albumCover = document.getElementById('album-cover');
-        const progressBar = document.getElementById('progress-bar');
-        const volumeSlider = document.getElementById('volume-slider');
+// Função de login revisada
+function handleLogin() {
+    // Gera um state único
+    const state = generateRandomString(16);
+    localStorage.setItem('spotify_auth_state', state);
+    
+    // Constrói a URL de autorização
+    const authUrl = new URL('https://accounts.spotify.com/authorize');
+    const params = {
+        client_id: clientId,
+        response_type: 'token',
+        redirect_uri: redirectUri,
+        scope: scopes.join(' '),
+        state: state,
+        show_dialog: 'true'
+    };
+    
+    Object.entries(params).forEach(([key, value]) => {
+        authUrl.searchParams.append(key, value);
+    });
+    
+    console.log("Redirecionando para:", authUrl.toString());
+    
+    // Abre em nova janela ou redireciona na mesma
+    const authWindow = window.open(
+        authUrl.toString(),
+        'SpotifyAuth',
+        'width=500,height=800,scrollbars=yes,resizable=yes'
+    );
+    
+    // Fallback se popup for bloqueado
+    if (!authWindow) {
+        window.location.href = authUrl.toString();
+    }
+}
 
-        // Estado do Player
-        let accessToken = null;
-        let playerState = null;
-        let progressInterval = null;
-
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAuthStatus();
-            setupEventListeners();
-        });
-
-        function checkAuthStatus() {
-            const hashParams = getHashParams();
-            
-            if (hashParams.access_token) {
-                // Autenticação via callback
-                handleAuthSuccess(hashParams);
-                window.history.pushState({}, document.title, window.location.pathname);
-            } else if (localStorage.getItem('spotify_access_token')) {
-                // Já autenticado
-                accessToken = localStorage.getItem('spotify_access_token');
-                showPlayerUI();
-                fetchUserData();
-                startPlayerUpdates();
-            }
+// Listener de mensagens melhorado
+window.addEventListener('message', function(event) {
+    // Verificação de segurança rigorosa
+    if (event.origin !== "https://psilva1987.github.io") {
+        console.warn("Mensagem ignorada - origem não confiável:", event.origin);
+        return;
+    }
+    
+    if (event.data.type === 'spotify-auth') {
+        if (!event.data.access_token) {
+            console.error("Mensagem recebida sem token:", event.data);
+            return;
         }
-
-        function getHashParams() {
-            const hash = window.location.hash.substring(1);
-            return hash.split('&').reduce((acc, item) => {
-                const [key, value] = item.split('=');
-                acc[key] = decodeURIComponent(value);
-                return acc;
-            }, {});
+        
+        // Verifica o state
+        const savedState = localStorage.getItem('spotify_auth_state');
+        if (event.data.state !== savedState) {
+            console.error("State mismatch - possível ataque CSRF");
+            return;
         }
+        
+        // Processa o token
+        processToken(event.data);
+    }
+});
 
-        function generateRandomString(length) {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-            let result = '';
-            for (let i = 0; i < length; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return result;
-        }
+// Função para processar o token
+function processToken(tokenData) {
+    console.log("Token recebido:", tokenData);
+    
+    // Armazena os tokens
+    localStorage.setItem('spotify_access_token', tokenData.access_token);
+    localStorage.setItem('spotify_token_expires', 
+        Date.now() + (tokenData.expires_in * 1000));
+    
+    // Atualiza a UI
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('player-screen').style.display = 'block';
+    
+    // Inicia o player
+    initializePlayer(tokenData.access_token);
+}
+
+// Helper para gerar state
+function generateRandomString(length) {
+    const array = new Uint8Array(length);
+    window.crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
 
         function setupEventListeners() {
             loginBtn.addEventListener('click', handleLogin);
