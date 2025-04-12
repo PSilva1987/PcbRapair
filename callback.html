@@ -3,37 +3,62 @@
 <head>
     <title>Spotify Callback</title>
     <script>
-        window.onload = function() {
-            try {
-                if (window.location.hash) {
-                    const hash = window.location.hash.substring(1);
-                    const params = new URLSearchParams(hash);
-                    
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("URL completa:", window.location.href);
+            console.log("Hash recebido:", window.location.hash);
+            
+            if (window.location.hash) {
+                try {
+                    const params = new URLSearchParams(window.location.hash.substring(1));
                     const tokenData = {
-                        type: 'spotify-auth',
                         access_token: params.get('access_token'),
                         expires_in: params.get('expires_in'),
                         token_type: params.get('token_type'),
                         state: params.get('state')
                     };
+
+                    console.log("Token extraído:", tokenData);
                     
-                    console.log("Dados do token:", tokenData);
-                    
-                    // Envia para a janela principal
-                    if (window.opener) {
-                        window.opener.postMessage(tokenData, "https://psilva1987.github.io");
-                        setTimeout(() => { window.close() }, 500);
+                    if (tokenData.access_token) {
+                        // Envia para a janela principal
+                        if (window.opener) {
+                            window.opener.postMessage({
+                                type: 'spotify-auth',
+                                ...tokenData
+                            }, "https://psilva1987.github.io");
+                            
+                            // Fecha após 1 segundo (tempo para enviar a mensagem)
+                            setTimeout(function() {
+                                window.close();
+                            }, 1000);
+                        } else {
+                            document.body.innerHTML = `
+                                <h2>Autenticação concluída</h2>
+                                <p>Você pode fechar esta janela.</p>
+                                <script>
+                                    localStorage.setItem('spotify_temp_token', '${tokenData.access_token}');
+                               <\/script>
+                            `;
+                        }
                     } else {
-                        document.body.innerHTML = '<h2>Autenticação concluída</h2><p>Feche esta janela e volte ao player.</p>';
+                        showError("Token de acesso não encontrado na URL");
                     }
-                } else {
-                    document.body.innerHTML = '<h2>Erro: Nenhum token recebido</h2>';
+                } catch (error) {
+                    showError(`Erro ao processar token: ${error.message}`);
                 }
-            } catch (error) {
-                console.error("Erro no callback:", error);
-                document.body.innerHTML = `<h2>Erro</h2><p>${error.message}</p>`;
+            } else {
+                showError("Nenhum token recebido - o hash está vazio");
             }
-        };
+
+            function showError(message) {
+                console.error(message);
+                document.body.innerHTML = `
+                    <h2>Erro na autenticação</h2>
+                    <p>${message}</p>
+                    <button onclick="window.close()">Fechar</button>
+                `;
+            }
+        });
     </script>
 </head>
 <body>
