@@ -451,27 +451,47 @@ function handleLogin() {
         }
 
         async function updatePlayerState() {
-            try {
-                const response = await fetch('https://api.spotify.com/v1/me/player', {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                });
-                
-                if (response.status === 200) {
-                    const data = await response.json();
-                    playerState = data;
-                    updateUI(data);
-                } else if (response.status === 204) {
-                    // Nenhum player ativo
-                    trackName.textContent = 'Nenhuma música tocando';
-                    artistName.textContent = '';
-                    playBtn.textContent = '▶';
-                }
-            } catch (error) {
-                console.error('Error updating player state:', error);
+    try {
+        const response = await fetch('https://api.spotify.com/v1/me/player', {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
             }
+        });
+
+        console.log("Status da resposta:", response.status); // Log para debug
+        
+        if (response.status === 200) {
+            const data = await response.json();
+            console.log("Dados do player:", data); // Log completo da resposta
+            
+            if (data.is_playing && data.item) {
+                // Atualiza a UI com os dados da música
+                document.getElementById('track-name').textContent = data.item.name;
+                document.getElementById('artist-name').textContent = data.item.artists.map(a => a.name).join(', ');
+                document.getElementById('album-cover').src = data.item.album.images[0].url;
+                document.getElementById('play-btn').textContent = '⏸';
+                
+                // Atualiza a barra de progresso
+                if (data.progress_ms && data.item.duration_ms) {
+                    const progressPercent = (data.progress_ms / data.item.duration_ms) * 100;
+                    document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+                }
+            } else {
+                console.log("Nenhuma música tocando no momento");
+                document.getElementById('track-name').textContent = "Nenhuma música tocando";
+                document.getElementById('artist-name').textContent = "";
+                document.getElementById('play-btn').textContent = '▶';
+            }
+        } else if (response.status === 204) {
+            console.log("Nenhum dispositivo ativo encontrado");
+            alert('Nenhum dispositivo ativo. Por favor, comece a tocar música no Spotify primeiro.');
+        } else {
+            console.error("Erro na resposta:", await response.text());
         }
+    } catch (error) {
+        console.error("Erro ao atualizar estado do player:", error);
+    }
+}
 
         function updateUI(data) {
             if (data.item) {
@@ -568,6 +588,71 @@ window.addEventListener('message', (event) => {
     initializePlayer(access_token);
   }
 });
+        async function transferPlaybackToWebPlayer() {
+    try {
+        const response = await fetch('https://api.spotify.com/v1/me/player', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                device_ids: ["web_player"], // Tenta transferir para o player web
+                play: true
+            })
+        });
+        
+        if (response.status === 202) {
+            console.log("Playback transferido para o player web");
+        }
+    } catch (error) {
+        console.error("Erro ao transferir playback:", error);
+    }
+}
+
+// Chame esta função após a autenticação
+transferPlaybackToWebPlayer();
+
+        let playerUpdateInterval;
+
+function startPlayerUpdates() {
+    // Atualiza imediatamente
+    updatePlayerState();
+    
+    // Configura intervalo para atualizações regulares
+    playerUpdateInterval = setInterval(updatePlayerState, 3000);
+}
+
+function stopPlayerUpdates() {
+    clearInterval(playerUpdateInterval);
+}
+
+        function initializePlayer(token) {
+    accessToken = token;
+    console.log("Token sendo usado:", accessToken); // Verifique no console
+    startPlayerUpdates();
+    fetchUserData();
+}
+
+        async function checkPlayerErrors() {
+    try {
+        const devicesResponse = await fetch('https://api.spotify.com/v1/me/player/devices', {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        
+        const devices = await devicesResponse.json();
+        console.log("Dispositivos disponíveis:", devices);
+        
+        if (devices.devices.length === 0) {
+            alert('Nenhum dispositivo do Spotify encontrado. Abra o Spotify em algum dispositivo primeiro.');
+        }
+    } catch (error) {
+        console.error("Erro ao verificar dispositivos:", error);
+    }
+}
+        
     </script>
 </body>
 </html>
