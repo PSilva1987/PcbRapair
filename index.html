@@ -1,161 +1,126 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Spotify Player Web</title>
+  <meta charset="UTF-8">
+  <title>Spotify Web Player Custom</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #121212;
+      background-color: #191414;
       color: white;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background-color: #1db954;
-      padding: 1rem;
+      font-family: Arial, sans-serif;
       text-align: center;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 1.8rem;
-    }
-    main {
-      padding: 2rem;
-      text-align: center;
+      padding: 40px;
     }
     button {
-      background-color: #1db954;
-      color: white;
+      background: #1DB954;
       border: none;
-      padding: 0.8rem 1.5rem;
-      font-size: 1rem;
-      border-radius: 25px;
+      color: white;
+      padding: 12px 24px;
+      margin: 10px;
       cursor: pointer;
+      font-size: 16px;
+      border-radius: 25px;
     }
-    .track-info {
-      margin-top: 2rem;
-    }
-    .track-info img {
-      width: 200px;
-      height: 200px;
-      object-fit: cover;
-      border-radius: 10px;
-    }
-    .track-info h2, .track-info p {
-      margin: 0.5rem 0;
-    }
-    .controls {
-      margin-top: 1.5rem;
-    }
-    .controls button {
-      margin: 0 0.5rem;
-      font-size: 1.2rem;
+    #player-controls {
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Spotify Web Player</h1>
-  </header>
-  <main>
-    <div id="login-section">
-      <p>Clique abaixo para entrar com sua conta Spotify:</p>
-      <button onclick="redirectToSpotifyAuth()">Login com Spotify789</button>
-    </div>
 
-    <div id="player-section" style="display: none;">
-      <div class="track-info" id="track-info">
-        <img id="album-image" src="" alt="Capa do Álbum">
-        <h2 id="track-name">Nome da Música</h2>
-        <p id="artist-name">Artista</p>
-      </div>
+  <h1>🎵 Spotify Web Player Custom</h1>
+  <div id="login" style="display: none;">
+    <button onclick="login()">Login com Spotify</button>
+  </div>
 
-      <div class="controls">
-        <button onclick="previousTrack()">⏮️</button>
-        <button onclick="togglePlay()">⏯️</button>
-        <button onclick="nextTrack()">⏭️</button>
-      </div>
+  <div id="player" style="display: none;">
+    <h2 id="track-name">Carregando música...</h2>
+    <h3 id="artist-name"></h3>
+    <div id="player-controls">
+      <button onclick="previousTrack()">⏮ Anterior</button>
+      <button onclick="togglePlay()">⏯ Play/Pause</button>
+      <button onclick="nextTrack()">⏭ Próxima</button>
     </div>
-  </main>
+  </div>
 
   <script>
-    const CLIENT_ID = 'a320634e6ebf4bb58de016369cf5b1a1';
+    const CLIENT_ID = 'a320634e6ebf4bb58de016369cf5b1a1'; // Substitua aqui
     const REDIRECT_URI = 'https://psilva1987.github.io/PcbRapair/';
-    const AUTH_ENDPOINT = 'https://accounts.spotify.com/authorize';
-    const RESPONSE_TYPE = 'token';
-    const SCOPES = [
-      'streaming',
-      'user-read-email',
-      'user-read-private',
-      'user-read-playback-state',
-      'user-modify-playback-state'
-    ];
+    const SCOPES = 'streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state';
 
-    function redirectToSpotifyAuth() {
-      const authUrl = `${AUTH_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=${RESPONSE_TYPE}&scope=${SCOPES.join('%20')}`;
-      window.location.href = authUrl;
+    function login() {
+      const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
+      window.location = authUrl;
     }
 
-    // Obtem token da URL após login
-    function getTokenFromUrl() {
+    function getAccessToken() {
       const hash = window.location.hash;
-      if (!hash) return null;
-
-      const params = new URLSearchParams(hash.substring(1));
-      return params.get('access_token');
+      if (hash) {
+        const token = new URLSearchParams(hash.substring(1)).get('access_token');
+        if (token) {
+          localStorage.setItem('spotify_token', token);
+          return token;
+        }
+      }
+      return localStorage.getItem('spotify_token');
     }
 
-    const token = getTokenFromUrl();
-
-    if (token) {
-      document.getElementById('login-section').style.display = 'none';
-      document.getElementById('player-section').style.display = 'block';
-
-      // Exibe informações da faixa atual
-      fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+    async function getCurrentPlayback(token) {
+      const res = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
         headers: {
-          Authorization: 'Bearer ' + token
-        }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.item) {
-          document.getElementById('album-image').src = data.item.album.images[0].url;
-          document.getElementById('track-name').innerText = data.item.name;
-          document.getElementById('artist-name').innerText = data.item.artists.map(a => a.name).join(', ');
-        } else {
-          document.getElementById('track-name').innerText = 'Nenhuma música tocando';
+          'Authorization': 'Bearer ' + token
         }
       });
+      if (res.status === 204 || res.status >= 400) {
+        document.getElementById('track-name').textContent = "Nada está tocando no momento.";
+        document.getElementById('artist-name').textContent = "";
+        return;
+      }
+      const data = await res.json();
+      document.getElementById('track-name').textContent = data.item.name;
+      document.getElementById('artist-name').textContent = data.item.artists.map(a => a.name).join(', ');
     }
 
-    function togglePlay() {
-      fetch('https://api.spotify.com/v1/me/player/toggle-play', {
+    async function togglePlay() {
+      const token = getAccessToken();
+      const res = await fetch('https://api.spotify.com/v1/me/player', {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      const isPlaying = data.is_playing;
+
+      await fetch(`https://api.spotify.com/v1/me/player/${isPlaying ? 'pause' : 'play'}`, {
         method: 'PUT',
-        headers: {
-          Authorization: 'Bearer ' + token
-        }
+        headers: { 'Authorization': 'Bearer ' + token }
       });
+
+      getCurrentPlayback(token);
     }
 
     function nextTrack() {
+      const token = getAccessToken();
       fetch('https://api.spotify.com/v1/me/player/next', {
         method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + token
-        }
-      }).then(() => location.reload());
+        headers: { 'Authorization': 'Bearer ' + token }
+      }).then(() => getCurrentPlayback(token));
     }
 
     function previousTrack() {
+      const token = getAccessToken();
       fetch('https://api.spotify.com/v1/me/player/previous', {
         method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + token
-        }
-      }).then(() => location.reload());
+        headers: { 'Authorization': 'Bearer ' + token }
+      }).then(() => getCurrentPlayback(token));
+    }
+
+    // INIT
+    const token = getAccessToken();
+    if (!token) {
+      document.getElementById('login').style.display = 'block';
+    } else {
+      document.getElementById('player').style.display = 'block';
+      getCurrentPlayback(token);
     }
   </script>
 </body>
