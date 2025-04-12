@@ -458,6 +458,26 @@
                 console.error('Error setting volume:', error);
             }
         }
+        // Adicione isso no seu arquivo principal (index.html)
+window.addEventListener('message', (event) => {
+  // Verifique a origem por segurança
+  if (event.origin !== "https://psilva1987.github.io") return;
+  
+  if (event.data.type === 'spotify-auth-response') {
+    const { access_token, expires_in } = event.data;
+    
+    // Armazene o token
+    localStorage.setItem('spotify_access_token', access_token);
+    localStorage.setItem('spotify_token_expires', Date.now() + (expires_in * 1000));
+    
+    // Atualize a UI
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('player-screen').style.display = 'block';
+    
+    // Inicie o player
+    initializePlayer(access_token);
+  }
+});
     </script>
 </body>
 </html>
