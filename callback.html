@@ -1,23 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Spotify Auth Callback</title>
+    <title>Spotify Callback</title>
+    <script>
+        if (window.location.hash) {
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const tokenData = {
+                access_token: hashParams.get('access_token'),
+                expires_in: hashParams.get('expires_in'),
+                state: hashParams.get('state')
+            };
+            
+            // Envia de volta para a página principal
+            window.opener.postMessage({
+                type: 'spotify-auth-callback',
+                ...tokenData
+            }, '*');
+            
+            window.close();
+        }
+    </script>
 </head>
 <body>
-  <script>
-    if (window.location.hash) {
-      const params = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = params.get('access_token');
-      const expiresIn = params.get('expires_in');
-      const state = params.get('state');
-      const storedState = sessionStorage.getItem('spotify_auth_state');
-
-      if (accessToken && (!state || state === storedState)) {
-        localStorage.setItem('spotify_access_token', accessToken);
-        localStorage.setItem('spotify_token_expires', Date.now() + (expiresIn * 1000));
-      }
-    }
-    window.close();
-  </script>
+    Autenticação concluída. Esta janela pode ser fechada.
 </body>
 </html>
