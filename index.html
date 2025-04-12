@@ -1,126 +1,142 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Spotify Web Player Custom</title>
+  <title>Spotify Web Player</title>
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <style>
-    body {
-      background-color: #191414;
-      color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 40px;
-    }
-    button {
-      background: #1DB954;
-      border: none;
-      color: white;
-      padding: 12px 24px;
-      margin: 10px;
-      cursor: pointer;
-      font-size: 16px;
-      border-radius: 25px;
-    }
-    #player-controls {
-      margin-top: 20px;
-    }
+    body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; }
+    .sidebar { width: 200px; background: #1DB954; color: white; padding: 20px; }
+    .main { flex: 1; padding: 20px; background: #121212; color: white; }
+    .controls button { margin: 10px; padding: 10px; }
+    input[type="text"] { width: 80%; padding: 10px; margin-bottom: 20px; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 10px 0; }
   </style>
 </head>
 <body>
-
-  <h1>🎵 Spotify Web Player Custom</h1>
-  <div id="login" style="display: none;">
-    <button onclick="login()">Login com Spotify</button>
+  <div class="sidebar">
+    <h2>Spotify Player</h2>
+    <button onclick="logout()">Logout</button>
   </div>
+  <div class="main">
+    <input id="search" placeholder="Buscar músicas..." onkeyup="handleSearch(event)">
+    <ul id="results"></ul>
 
-  <div id="player" style="display: none;">
-    <h2 id="track-name">Carregando música...</h2>
-    <h3 id="artist-name"></h3>
-    <div id="player-controls">
-      <button onclick="previousTrack()">⏮ Anterior</button>
-      <button onclick="togglePlay()">⏯ Play/Pause</button>
-      <button onclick="nextTrack()">⏭ Próxima</button>
+    <div class="controls">
+      <button onclick="player.previousTrack()">⏮️ Anterior</button>
+      <button onclick="player.togglePlay()">⏯️ Play/Pause</button>
+      <button onclick="player.nextTrack()">⏭️ Próxima</button>
     </div>
   </div>
 
+  <script src="pkce.js"></script>
   <script>
-    const CLIENT_ID = 'a320634e6ebf4bb58de016369cf5b1a1'; // Substitua aqui
-    const REDIRECT_URI = 'https://psilva1987.github.io/PcbRapair/';
-    const SCOPES = 'streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state';
+    const clientId = "a320634e6ebf4bb58de016369cf5b1a1"; // Insira seu Client ID aqui
+    const redirectUri = "https://psilva1987.github.io/PcbRapair/index.html";
+    const scope = "streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state";
 
-    function login() {
-      const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}&response_type=token&show_dialog=true`;
-      window.location = authUrl;
-    }
+    let accessToken = localStorage.getItem("access_token");
 
-    function getAccessToken() {
-      const hash = window.location.hash;
-      if (hash) {
-        const token = new URLSearchParams(hash.substring(1)).get('access_token');
-        if (token) {
-          localStorage.setItem('spotify_token', token);
-          return token;
-        }
+    if (!accessToken) {
+      const code = new URLSearchParams(window.location.search).get('code');
+      if (!code) {
+        const codeVerifier = generateCodeVerifier();
+        generateCodeChallenge(codeVerifier).then(codeChallenge => {
+          localStorage.setItem('code_verifier', codeVerifier);
+          const args = new URLSearchParams({
+            response_type: 'code',
+            client_id: clientId,
+            scope: scope,
+            code_challenge_method: 'S256',
+            code_challenge: codeChallenge,
+            redirect_uri: redirectUri
+          });
+          window.location = 'https://accounts.spotify.com/authorize?' + args;
+        });
+      } else {
+        const codeVerifier = localStorage.getItem('code_verifier');
+        fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: clientId,
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: redirectUri,
+            code_verifier: codeVerifier
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          accessToken = data.access_token;
+          localStorage.setItem("access_token", accessToken);
+          window.history.replaceState({}, document.title, "/PcbRapair/");
+          initializePlayer();
+        });
       }
-      return localStorage.getItem('spotify_token');
-    }
-
-    async function getCurrentPlayback(token) {
-      const res = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
-      });
-      if (res.status === 204 || res.status >= 400) {
-        document.getElementById('track-name').textContent = "Nada está tocando no momento.";
-        document.getElementById('artist-name').textContent = "";
-        return;
-      }
-      const data = await res.json();
-      document.getElementById('track-name').textContent = data.item.name;
-      document.getElementById('artist-name').textContent = data.item.artists.map(a => a.name).join(', ');
-    }
-
-    async function togglePlay() {
-      const token = getAccessToken();
-      const res = await fetch('https://api.spotify.com/v1/me/player', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      const data = await res.json();
-      const isPlaying = data.is_playing;
-
-      await fetch(`https://api.spotify.com/v1/me/player/${isPlaying ? 'pause' : 'play'}`, {
-        method: 'PUT',
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-
-      getCurrentPlayback(token);
-    }
-
-    function nextTrack() {
-      const token = getAccessToken();
-      fetch('https://api.spotify.com/v1/me/player/next', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token }
-      }).then(() => getCurrentPlayback(token));
-    }
-
-    function previousTrack() {
-      const token = getAccessToken();
-      fetch('https://api.spotify.com/v1/me/player/previous', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token }
-      }).then(() => getCurrentPlayback(token));
-    }
-
-    // INIT
-    const token = getAccessToken();
-    if (!token) {
-      document.getElementById('login').style.display = 'block';
     } else {
-      document.getElementById('player').style.display = 'block';
-      getCurrentPlayback(token);
+      initializePlayer();
+    }
+
+    let player;
+
+    function initializePlayer() {
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        player = new Spotify.Player({
+          name: 'Web Playback SDK',
+          getOAuthToken: cb => { cb(accessToken); },
+          volume: 0.5
+        });
+
+        player.addListener('ready', ({ device_id }) => {
+          console.log('Ready with Device ID', device_id);
+          localStorage.setItem('device_id', device_id);
+        });
+
+        player.addListener('initialization_error', e => console.error(e));
+        player.addListener('authentication_error', e => console.error(e));
+        player.addListener('account_error', e => console.error(e));
+        player.addListener('playback_error', e => console.error(e));
+
+        player.connect();
+      };
+    }
+
+    function handleSearch(e) {
+      if (e.key === "Enter") {
+        const query = e.target.value;
+        fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+          const results = document.getElementById('results');
+          results.innerHTML = '';
+          data.tracks.items.forEach(track => {
+            const li = document.createElement('li');
+            li.innerHTML = `${track.name} - ${track.artists[0].name} <button onclick="playTrack('${track.uri}')">Tocar</button>`;
+            results.appendChild(li);
+          });
+        });
+      }
+    }
+
+    function playTrack(uri) {
+      const deviceId = localStorage.getItem('device_id');
+      fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ uris: [uri] }),
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+
+    function logout() {
+      localStorage.clear();
+      location.reload();
     }
   </script>
 </body>
