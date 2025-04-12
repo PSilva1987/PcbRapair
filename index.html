@@ -299,19 +299,28 @@
         }
 
         function handleLogin() {
-            const state = generateRandomString(16);
-            localStorage.setItem('spotify_auth_state', state);
-            
-            const authUrl = new URL('https://accounts.spotify.com/authorize');
-            authUrl.searchParams.append('client_id', clientId);
-            authUrl.searchParams.append('response_type', 'token');
-            authUrl.searchParams.append('redirect_uri', redirectUri);
-            authUrl.searchParams.append('scope', scopes.join(' '));
-            authUrl.searchParams.append('state', state);
-            authUrl.searchParams.append('show_dialog', 'true');
-            
-            window.location.href = authUrl.toString();
-        }
+  // Limpa tokens antigos
+  localStorage.removeItem('spotify_access_token');
+  
+  const state = generateRandomString(16);
+  localStorage.setItem('spotify_auth_state', state);
+
+  const authUrl = new URL('https://accounts.spotify.com/authorize');
+  authUrl.searchParams.append('client_id', clientId);
+  authUrl.searchParams.append('response_type', 'token');
+  authUrl.searchParams.append('redirect_uri', redirectUri);
+  authUrl.searchParams.append('scope', scopes.join(' '));
+  authUrl.searchParams.append('state', state);
+  authUrl.searchParams.append('show_dialog', 'true');
+  
+  // Abre em uma nova janela/popup
+  const authWindow = window.open(authUrl.toString(), 'SpotifyAuth', 'width=500,height=800');
+  
+  // Verifica se a janela foi bloqueada
+  if (!authWindow) {
+    alert('Por favor, permita popups para este site');
+  }
+}
 
         function handleAuthSuccess(params) {
             if (params.state !== localStorage.getItem('spotify_auth_state')) {
